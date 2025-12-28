@@ -80,7 +80,7 @@ if [[ ! -d "$TARGET_DIR/.git" ]]; then
     echo -e "   ${YELLOW}[y]${NC} 是，初始化 Git 仓库"
     echo -e "   ${YELLOW}[n]${NC} 否，退出安装"
     echo ""
-    read -p "   请选择 (y/N): " -n 1 -r
+    read -p "   请选择 (y/N): " -n 1 -r < /dev/tty
     echo ""
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
