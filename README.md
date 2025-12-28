@@ -153,7 +153,7 @@ git push                              # ← 自动生成 docs/features/feature-m
 
 ### 自动提交配置
 
-安装时会询问是否启用自动提交。如需手动配置，编辑 `.claude/settings.local.json`：
+安装时会询问是否启用自动提交。如需手动配置，编辑 `.claude/settings.json`（项目级配置，不会被覆盖）：
 
 ```json
 {

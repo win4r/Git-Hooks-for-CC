@@ -427,7 +427,8 @@ read -p "   请选择 (Y/n): " -n 1 -r < /dev/tty
 echo ""
 
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-    cat > "$TARGET_DIR/.claude/settings.local.json" << 'SETTINGS_EOF'
+    # 使用 settings.json（项目级配置，不会被 Claude Code 覆盖）
+    cat > "$TARGET_DIR/.claude/settings.json" << 'SETTINGS_EOF'
 {
   "hooks": {
     "PostToolUse": [
@@ -444,7 +445,7 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
   }
 }
 SETTINGS_EOF
-    print_success "自动提交已启用"
+    print_success "自动提交已启用（配置文件: .claude/settings.json）"
 else
     print_warning "自动提交未启用（可稍后手动配置）"
 fi
