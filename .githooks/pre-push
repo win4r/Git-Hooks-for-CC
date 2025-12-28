@@ -1,0 +1,253 @@
+#!/bin/bash
+#===============================================================================
+# Pre-Push Hook: 汇总累积的提交并生成功能文档
+# 
+# 功能：
+#   1. 读取 post-commit 累积的提交记录
+#   2. 调用 Claude Code (headless) 生成功能文档
+#   3. 将文档提交到仓库
+#   4. 清理累积文件
+#
+# 位置：.githooks/pre-push
+# 安装：git config core.hooksPath .githooks
+#===============================================================================
+
+set -e
+
+#-------------------------------------------------------------------------------
+# 配置区域
+#-------------------------------------------------------------------------------
+ACCUMULATOR_DIR=".git/commit-accumulator"
+DOCS_DIR="docs/features"
+LOG_FILE=".git/hooks.log"
+
+# 需要跳过的分支
+SKIP_BRANCHES=("main" "master" "develop" "release")
+
+# Claude 配置
+CLAUDE_TIMEOUT=120  # 秒
+CLAUDE_MODEL=""     # 留空使用默认，或设置为 "opus" / "sonnet"
+
+#-------------------------------------------------------------------------------
+# 工具函数
+#-------------------------------------------------------------------------------
+log() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] [pre-push] $1" >> "$LOG_FILE"
+}
+
+is_skip_branch() {
+    local branch=$1
+    for skip in "${SKIP_BRANCHES[@]}"; do
+        if [[ "$branch" == "$skip" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+check_claude_available() {
+    if ! command -v claude &> /dev/null; then
+        echo "⚠️  Claude Code CLI 未安装，跳过文档生成"
+        log "错误：Claude Code CLI 未找到"
+        return 1
+    fi
+    return 0
+}
+
+#-------------------------------------------------------------------------------
+# 文档生成函数
+#-------------------------------------------------------------------------------
+generate_documentation() {
+    local branch=$1
+    local accumulator_file=$2
+    local output_file=$3
+    
+    # 读取累积的提交信息
+    local commits_content=""
+    
+    if command -v jq &> /dev/null && [[ -f "$accumulator_file" ]]; then
+        # 使用 jq 解析 JSON
+        commits_content=$(jq -r '
+            "## 分支信息\n- 分支名: \(.branch)\n- 创建时间: \(.created_at)\n- 更新时间: \(.updated_at // "N/A")\n\n## 提交记录\n" +
+            ([.commits[] | "### \(.hash_short) - \(.message)\n- 时间: \(.date)\n- 作者: \(.author)\n- 文件: \(.files)\n- 统计: \(.stats)\n"] | join("\n"))
+        ' "$accumulator_file" 2>/dev/null)
+    else
+        # 备用：读取文本格式
+        local text_file="${accumulator_file%.json}.txt"
+        if [[ -f "$text_file" ]]; then
+            commits_content=$(cat "$text_file")
+        fi
+    fi
+    
+    # 如果没有内容，跳过
+    if [[ -z "$commits_content" ]]; then
+        log "没有累积的提交内容"
+        return 1
+    fi
+    
+    # 获取额外上下文：主要修改的文件内容摘要
+    local main_files=$(echo "$commits_content" | grep -oP '(?<=文件: )[^,]+' | head -5 | tr '\n' ' ')
+    
+    # 构建 Claude 提示
+    local prompt="你是一个专业的技术文档工程师。请基于以下 Git 提交记录，为这个功能/修复生成一份清晰、专业的技术文档。
+
+$commits_content
+
+请生成一个 Markdown 格式的文档，包含以下部分：
+
+# [根据提交内容推断的功能名称]
+
+## 概述
+[用 2-3 句话描述这个功能/修复的目的和价值]
+
+## 变更摘要
+[列出主要的变更点，使用 bullet points]
+
+## 技术细节
+[描述关键的技术实现，如果能从文件名推断的话]
+
+## 影响范围
+[列出受影响的模块或功能区域]
+
+## 相关提交
+[列出所有提交的简短哈希和消息]
+
+---
+*此文档由 Claude Code 自动生成于 $(date '+%Y-%m-%d %H:%M:%S')*
+
+注意事项：
+1. 保持专业、简洁
+2. 只输出 Markdown 内容，不要有任何前言或解释
+3. 如果信息不足以推断某部分内容，可以标注 [待补充]
+4. 文档总长度控制在 300 字以内"
+
+    # 调用 Claude Code headless 模式
+    log "开始调用 Claude 生成文档..."
+    echo "🤖 正在调用 Claude 生成文档..."
+    
+    local claude_output
+    if [[ -n "$CLAUDE_MODEL" ]]; then
+        claude_output=$(timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" --model "$CLAUDE_MODEL" --output-format text 2>&1) || true
+    else
+        claude_output=$(timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" --output-format text 2>&1) || true
+    fi
+    
+    # 检查输出是否有效
+    if [[ -z "$claude_output" ]] || [[ "$claude_output" == *"error"* ]] || [[ "$claude_output" == *"Error"* ]]; then
+        log "Claude 输出异常: $claude_output"
+        echo "⚠️  Claude 生成失败，使用基础模板"
+        
+        # 生成基础模板作为备用
+        claude_output="# 功能文档: $branch
+
+## 概述
+[待补充 - Claude 生成失败]
+
+## 提交记录
+$commits_content
+
+---
+*此文档需要手动完善*"
+    fi
+    
+    # 写入文件
+    echo "$claude_output" > "$output_file"
+    log "文档已生成: $output_file"
+    
+    return 0
+}
+
+#-------------------------------------------------------------------------------
+# 主逻辑
+#-------------------------------------------------------------------------------
+main() {
+    log "========== Pre-push hook 开始 =========="
+    
+    # 获取当前分支
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    
+    if [[ -z "$current_branch" ]]; then
+        log "无法获取当前分支，跳过"
+        exit 0
+    fi
+    
+    log "当前分支: $current_branch"
+    
+    # 检查是否需要跳过
+    if is_skip_branch "$current_branch"; then
+        log "跳过：分支在跳过列表中"
+        echo "📌 跳过文档生成（分支: $current_branch）"
+        exit 0
+    fi
+    
+    # 检查累积文件是否存在
+    local safe_branch_name=$(echo "$current_branch" | tr '/' '-')
+    local accumulator_file="$ACCUMULATOR_DIR/${safe_branch_name}.json"
+    local accumulator_text="$ACCUMULATOR_DIR/${safe_branch_name}.txt"
+    
+    if [[ ! -f "$accumulator_file" ]] && [[ ! -f "$accumulator_text" ]]; then
+        log "没有累积的提交记录，跳过文档生成"
+        echo "📌 没有新的提交记录需要生成文档"
+        exit 0
+    fi
+    
+    # 检查 Claude 是否可用
+    if ! check_claude_available; then
+        exit 0
+    fi
+    
+    # 准备输出目录
+    mkdir -p "$DOCS_DIR"
+    local doc_file="$DOCS_DIR/${safe_branch_name}.md"
+    
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║           📝 Claude Code 文档生成器                          ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  分支: $current_branch"
+    echo "║  输出: $doc_file"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    # 生成文档
+    if generate_documentation "$current_branch" "$accumulator_file" "$doc_file"; then
+        echo "✅ 文档生成成功！"
+        
+        # 检查文档是否有实际内容
+        if [[ -s "$doc_file" ]]; then
+            # 将文档加入 Git
+            git add "$doc_file"
+            
+            # 检查是否有变更需要提交
+            if git diff --cached --quiet "$doc_file" 2>/dev/null; then
+                echo "📌 文档无变化，跳过提交"
+            else
+                # 创建提交
+                git commit -m "docs($safe_branch_name): auto-generate feature documentation
+
+- Generated by Claude Code pre-push hook
+- Branch: $current_branch
+- Date: $(date '+%Y-%m-%d %H:%M:%S')" --no-verify
+                
+                echo "✅ 文档已提交到仓库"
+            fi
+        fi
+        
+        # 清理累积文件
+        rm -f "$accumulator_file" "$accumulator_text"
+        log "累积文件已清理"
+        echo "🧹 累积记录已清理"
+    else
+        echo "⚠️  文档生成遇到问题，继续推送..."
+    fi
+    
+    echo ""
+    log "========== Pre-push hook 完成 =========="
+    
+    # 始终允许推送继续
+    exit 0
+}
+
+# 执行主函数
+main "$@"

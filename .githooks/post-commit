@@ -1,0 +1,120 @@
+#!/bin/bash
+#===============================================================================
+# Post-Commit Hook: 累积记录每次提交信息
+# 
+# 功能：在每次 git commit 后，将提交信息追加到累积文件中
+# 位置：.githooks/post-commit
+# 安装：git config core.hooksPath .githooks
+#===============================================================================
+
+set -e
+
+#-------------------------------------------------------------------------------
+# 配置区域
+#-------------------------------------------------------------------------------
+ACCUMULATOR_DIR=".git/commit-accumulator"
+LOG_FILE=".git/hooks.log"
+
+# 需要跳过的分支（不记录这些分支的提交）
+SKIP_BRANCHES=("main" "master" "develop" "release")
+
+#-------------------------------------------------------------------------------
+# 工具函数
+#-------------------------------------------------------------------------------
+log() {
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] [post-commit] $1" >> "$LOG_FILE"
+}
+
+is_skip_branch() {
+    local branch=$1
+    for skip in "${SKIP_BRANCHES[@]}"; do
+        if [[ "$branch" == "$skip" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+#-------------------------------------------------------------------------------
+# 主逻辑
+#-------------------------------------------------------------------------------
+main() {
+    # 获取当前分支
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    
+    # 如果无法获取分支（如 detached HEAD），跳过
+    if [[ -z "$current_branch" ]]; then
+        log "跳过：无法获取当前分支（可能是 detached HEAD）"
+        exit 0
+    fi
+    
+    # 检查是否需要跳过此分支
+    if is_skip_branch "$current_branch"; then
+        log "跳过：分支 '$current_branch' 在跳过列表中"
+        exit 0
+    fi
+    
+    # 确保累积目录存在
+    mkdir -p "$ACCUMULATOR_DIR"
+    
+    # 累积文件路径（使用分支名，替换 / 为 -）
+    local safe_branch_name=$(echo "$current_branch" | tr '/' '-')
+    local accumulator_file="$ACCUMULATOR_DIR/${safe_branch_name}.json"
+    
+    # 获取提交信息
+    local commit_hash=$(git log -1 --pretty=%H)
+    local commit_hash_short=$(git log -1 --pretty=%h)
+    local commit_message=$(git log -1 --pretty=%B | head -1)
+    local commit_body=$(git log -1 --pretty=%b)
+    local commit_author=$(git log -1 --pretty=%an)
+    local commit_date=$(git log -1 --pretty=%ci)
+    local changed_files=$(git diff-tree --no-commit-id --name-only -r HEAD | tr '\n' ',' | sed 's/,$//')
+    local stats=$(git diff-tree --no-commit-id --stat -r HEAD | tail -1)
+    
+    # 构建 JSON 条目
+    local json_entry=$(cat << EOF
+{
+    "hash": "$commit_hash",
+    "hash_short": "$commit_hash_short",
+    "message": "$commit_message",
+    "body": $(echo "$commit_body" | jq -Rs .),
+    "author": "$commit_author",
+    "date": "$commit_date",
+    "files": "$(echo $changed_files)",
+    "stats": "$stats"
+}
+EOF
+)
+    
+    # 如果累积文件不存在，创建新的 JSON 数组
+    if [[ ! -f "$accumulator_file" ]]; then
+        echo '{
+    "branch": "'"$current_branch"'",
+    "created_at": "'"$(date -Iseconds)"'",
+    "commits": []
+}' > "$accumulator_file"
+    fi
+    
+    # 使用 jq 追加提交记录（如果没有 jq，使用备用方案）
+    if command -v jq &> /dev/null; then
+        local temp_file=$(mktemp)
+        jq --argjson commit "$json_entry" '.commits += [$commit] | .updated_at = "'"$(date -Iseconds)"'"' "$accumulator_file" > "$temp_file"
+        mv "$temp_file" "$accumulator_file"
+    else
+        # 备用方案：简单的文本追加
+        local text_file="$ACCUMULATOR_DIR/${safe_branch_name}.txt"
+        echo "---" >> "$text_file"
+        echo "Commit: $commit_hash_short" >> "$text_file"
+        echo "Date: $commit_date" >> "$text_file"
+        echo "Message: $commit_message" >> "$text_file"
+        echo "Files: $changed_files" >> "$text_file"
+        echo "" >> "$text_file"
+    fi
+    
+    log "已记录提交 $commit_hash_short 到 $accumulator_file"
+    echo "📝 已记录提交 $commit_hash_short"
+}
+
+# 执行主函数
+main "$@"
