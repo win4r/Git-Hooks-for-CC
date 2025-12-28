@@ -1,9 +1,10 @@
 # 🤖 Claude Git Hooks AutoDoc
 
-基于 Git Hooks + Claude Code 的自动功能文档生成系统。
+基于 Git Hooks + Claude Code 的**全自动**功能文档生成系统。
 
 ## ✨ 功能特点
 
+- **🔥 自动提交代码**：Claude Code 写完代码后自动 `git commit`（可选）
 - **自动记录提交**：每次 `git commit` 后自动记录提交信息到 JSON 文件
 - **智能文档生成**：`git push` 前自动调用 Claude 生成功能文档
 - **累积汇总**：支持多次提交累积，推送时一次性生成完整文档
@@ -14,26 +15,23 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           开发工作流                                     │
+│                        🚀 全自动开发工作流                               │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│   git commit ──┬──► post-commit hook ──► 记录到 JSON 文件               │
-│                │                         (.git/commit-accumulator/)     │
-│   git commit ──┤                                                        │
-│                │                                                        │
-│   git commit ──┘                                                        │
+│   Claude Code 写代码 ──► PostToolUse Hook ──► 自动 git commit           │
+│         │                                                               │
+│         ▼                                                               │
+│   post-commit hook ──► 记录到 JSON (.git/commit-accumulator/)           │
+│         │                                                               │
+│         ▼                                                               │
+│   git push ──► pre-push hook                                            │
+│                   │                                                     │
+│                   ├──► 读取累积的提交记录                                │
+│                   ├──► 调用 Claude Code 生成文档                         │
+│                   ├──► 自动提交文档到 docs/features/                     │
+│                   └──► 清理累积文件                                      │
 │                                                                         │
-│         ↓                                                               │
-│                                                                         │
-│   git push ────► pre-push hook ──► 读取累积文件                          │
-│                        │                                                │
-│                        ├──► 调用 Claude Code (headless)                 │
-│                        │                                                │
-│                        ├──► 生成功能文档 (docs/features/[branch].md)     │
-│                        │                                                │
-│                        ├──► 自动提交文档                                 │
-│                        │                                                │
-│                        └──► 清理累积文件                                 │
+│   ✨ 你只需要: 让 Claude Code 写代码 + git push                          │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -152,6 +150,30 @@ git push                              # ← 自动生成 docs/features/feature-m
 ```
 
 ## ⚙️ 配置选项
+
+### 自动提交配置
+
+安装时会询问是否启用自动提交。如需手动配置，编辑 `.claude/settings.local.json`：
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [[ -n $(git status --porcelain 2>/dev/null) ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"✅ 已自动提交\"; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+删除此文件可禁用自动提交功能。
 
 ### 跳过特定分支
 

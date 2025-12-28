@@ -414,6 +414,42 @@ CMD_EOF
 print_success "Claude Code 命令已安装"
 
 #-------------------------------------------------------------------------------
+# 配置自动提交（可选）
+#-------------------------------------------------------------------------------
+print_step "配置 Claude Code 自动提交..."
+
+echo ""
+echo -e "   是否启用 Claude Code 自动提交功能？"
+echo -e "   ${YELLOW}[y]${NC} 是，Claude Code 写代码后自动 git commit"
+echo -e "   ${YELLOW}[n]${NC} 否，手动执行 git commit"
+echo ""
+read -p "   请选择 (Y/n): " -n 1 -r < /dev/tty
+echo ""
+
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    cat > "$TARGET_DIR/.claude/settings.local.json" << 'SETTINGS_EOF'
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [[ -n $(git status --porcelain 2>/dev/null) ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"✅ 已自动提交\"; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}
+SETTINGS_EOF
+    print_success "自动提交已启用"
+else
+    print_warning "自动提交未启用（可稍后手动配置）"
+fi
+
+#-------------------------------------------------------------------------------
 # 配置 Git
 #-------------------------------------------------------------------------------
 print_step "配置 Git hooks 路径..."
@@ -470,14 +506,14 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║         ✅ 安装完成！                                        ║${NC}"
 echo -e "${GREEN}╠══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}║  使用方法:                                                    ║${NC}"
-echo -e "${GREEN}║    git commit -m \"feat: xxx\"   # 自动记录提交                ║${NC}"
-echo -e "${GREEN}║    git push                    # 自动生成文档                 ║${NC}"
+echo -e "${GREEN}║  🚀 完整自动化流程:                                          ║${NC}"
+echo -e "${GREEN}║    Claude Code 写代码 → 自动提交 → 自动记录                  ║${NC}"
+echo -e "${GREEN}║    git push → 自动生成文档 → 自动提交文档                    ║${NC}"
 echo -e "${GREEN}║                                                              ║${NC}"
-echo -e "${GREEN}║  Claude Code 命令:                                           ║${NC}"
-echo -e "${GREEN}║    /review-commits            # 查看累积的提交               ║${NC}"
-echo -e "${GREEN}║    /generate-feature-doc      # 手动生成文档                 ║${NC}"
-echo -e "${GREEN}║    /clear-commits             # 清理累积记录                 ║${NC}"
+echo -e "${GREEN}║  📋 Claude Code 命令:                                        ║${NC}"
+echo -e "${GREEN}║    /review-commits        查看累积的提交                     ║${NC}"
+echo -e "${GREEN}║    /generate-feature-doc  手动生成文档                       ║${NC}"
+echo -e "${GREEN}║    /clear-commits         清理累积记录                       ║${NC}"
 echo -e "${GREEN}║                                                              ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
