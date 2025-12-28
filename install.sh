@@ -74,11 +74,27 @@ echo ""
 print_step "检查 Git 仓库..."
 
 if [[ ! -d "$TARGET_DIR/.git" ]]; then
-    print_error "目标路径不是 Git 仓库"
-    echo "   请先运行 'git init' 或选择一个 Git 仓库"
-    exit 1
+    print_warning "目标路径不是 Git 仓库"
+    echo ""
+    echo -e "   是否要在此目录初始化 Git 仓库？"
+    echo -e "   ${YELLOW}[y]${NC} 是，初始化 Git 仓库"
+    echo -e "   ${YELLOW}[n]${NC} 否，退出安装"
+    echo ""
+    read -p "   请选择 (y/N): " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        cd "$TARGET_DIR"
+        git init
+        print_success "Git 仓库已初始化"
+    else
+        print_error "安装已取消"
+        echo "   请先运行 'git init' 或选择一个 Git 仓库"
+        exit 1
+    fi
+else
+    print_success "Git 仓库检测通过"
 fi
-print_success "Git 仓库检测通过"
 
 #-------------------------------------------------------------------------------
 # 创建目录结构
