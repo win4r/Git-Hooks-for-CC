@@ -5,6 +5,7 @@
 ## ✨ 功能特点
 
 - **🔥 自动提交代码**：Claude Code 写完代码后自动 `git commit`（可选）
+- **🌿 自动创建分支**：在 main/master 分支时自动创建功能分支（可选）
 - **自动记录提交**：每次 `git commit` 后自动记录提交信息到 JSON 文件
 - **智能文档生成**：`git push` 前自动调用 Claude 生成功能文档
 - **累积汇总**：支持多次提交累积，推送时一次性生成完整文档
@@ -18,7 +19,11 @@
 │                        🚀 全自动开发工作流                               │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│   Claude Code 写代码 ──► PostToolUse Hook ──► 自动 git commit           │
+│   Claude Code 写代码                                                    │
+│         │                                                               │
+│         ├──► PreToolUse Hook ──► 如果在 main 分支，自动创建功能分支      │
+│         │                                                               │
+│         ├──► PostToolUse Hook ──► 自动 git commit                       │
 │         │                                                               │
 │         ▼                                                               │
 │   post-commit hook ──► 记录到 JSON (.git/commit-accumulator/)           │

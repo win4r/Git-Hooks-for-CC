@@ -431,6 +431,17 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     cat > "$TARGET_DIR/.claude/settings.json" << 'SETTINGS_EOF'
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'branch=$(git branch --show-current 2>/dev/null); if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"🌿 已自动创建分支: $new_branch\"; fi'"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|NotebookEdit",
@@ -446,6 +457,7 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
 }
 SETTINGS_EOF
     print_success "自动提交已启用（配置文件: .claude/settings.json）"
+    print_success "自动创建分支已启用（在 main/master 分支时自动创建功能分支）"
 else
     print_warning "自动提交未启用（可稍后手动配置）"
 fi
