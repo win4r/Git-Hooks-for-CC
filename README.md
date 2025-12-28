@@ -45,7 +45,10 @@
 在你的项目目录中运行：
 
 ```bash
-# 下载并执行安装脚本
+# 下载并执行安装脚本（推荐使用 jsDelivr CDN，更新更快）
+curl -fsSL https://cdn.jsdelivr.net/gh/win4r/Git-Hooks-for-CC@main/install.sh | bash
+
+# 或使用 GitHub Raw（可能有缓存延迟）
 curl -fsSL https://raw.githubusercontent.com/win4r/Git-Hooks-for-CC/main/install.sh | bash
 ```
 
