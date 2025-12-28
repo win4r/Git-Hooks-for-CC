@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'branch=$(git branch --show-current 2>/dev/null); if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"🌿 已自动创建分支: $new_branch\"; fi'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [[ -n $(git status --porcelain 2>/dev/null) ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"✅ 已自动提交\"; fi'"
+          }
+        ]
+      }
+    ]
+  }
+}

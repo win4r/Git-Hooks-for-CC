@@ -82,21 +82,34 @@ cd Git-Hooks-for-CC
 ### 方法三：手动安装
 
 ```bash
-# 1. 复制文件到你的项目
+# 1. 克隆仓库
+git clone https://github.com/win4r/Git-Hooks-for-CC.git
+cd Git-Hooks-for-CC
+
+# 2. 复制文件到你的项目
 cp -r .githooks /path/to/your/project/
 cp -r .claude /path/to/your/project/
 mkdir -p /path/to/your/project/docs/features
 
-# 2. 设置权限
+# 3. 设置权限
 chmod +x /path/to/your/project/.githooks/*
 
-# 3. 配置 Git
+# 4. 配置 Git
 cd /path/to/your/project
 git config core.hooksPath .githooks
 
-# 4. 创建累积目录
+# 5. 创建累积目录
 mkdir -p .git/commit-accumulator
 ```
+
+**仓库文件说明：**
+| 文件 | 说明 |
+|------|------|
+| `.githooks/post-commit` | 提交后记录 hook |
+| `.githooks/pre-push` | 推送前生成文档 hook |
+| `.claude/settings.json` | 自动提交 + 自动创建分支配置 |
+| `.claude/commands/*.md` | 斜杠命令 |
+| `scripts/setup-hooks.sh` | 备用安装脚本 |
 
 ## 📁 目录结构
 
@@ -106,6 +119,7 @@ your-project/
 │   ├── post-commit              # 提交后记录 hook
 │   └── pre-push                 # 推送前生成文档 hook
 ├── .claude/
+│   ├── settings.json            # 自动提交 + 自动创建分支配置
 │   └── commands/
 │       ├── review-commits.md    # 查看累积的提交
 │       ├── generate-feature-doc.md  # 手动生成文档
