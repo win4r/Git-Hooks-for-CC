@@ -46,14 +46,14 @@
 
 ```bash
 # 下载并执行安装脚本
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/claude-git-hooks-autodoc/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/win4r/Git-Hooks-for-CC/main/install.sh | bash
 ```
 
 或者克隆仓库后安装：
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-git-hooks-autodoc.git
-cd claude-git-hooks-autodoc
+git clone https://github.com/win4r/Git-Hooks-for-CC.git
+cd Git-Hooks-for-CC
 ./install.sh /path/to/your/project
 ```
 
@@ -70,7 +70,7 @@ cd claude-git-hooks-autodoc
 4. 配置 git config core.hooksPath .githooks
 5. 更新 .gitignore
 
-请从 https://github.com/YOUR_USERNAME/claude-git-hooks-autodoc 获取脚本内容。
+请从 https://github.com/win4r/Git-Hooks-for-CC 获取脚本内容。
 ```
 
 ### 方法三：手动安装
