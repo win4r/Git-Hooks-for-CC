@@ -124,7 +124,12 @@ your-project/
 │   └── commands/
 │       ├── review-commits.md    # 查看累积的提交
 │       ├── generate-feature-doc.md  # 手动生成文档
-│       └── clear-commits.md     # 清理累积记录
+│       ├── clear-commits.md     # 清理累积记录
+│       ├── tag.md               # 创建版本标签
+│       ├── list-tags.md         # 查看所有标签
+│       ├── history.md           # 查看提交历史
+│       ├── checkout-version.md  # 回退到指定版本
+│       └── delete-tag.md        # 删除标签
 ├── docs/
 │   └── features/                # 自动生成的文档目录
 │       └── [branch-name].md
