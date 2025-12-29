@@ -1,5 +1,7 @@
 # 🤖 Claude Git Hooks AutoDoc
 
+### 我的频道：https://www.youtube.com/@AIsuperdomain
+
 基于 Git Hooks + Claude Code 的**全自动**功能文档生成系统。
 
 ## ✨ 功能特点
