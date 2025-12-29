@@ -449,6 +449,24 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     # 使用 settings.json（项目级配置，不会被 Claude Code 覆盖）
     cat > "$TARGET_DIR/.claude/settings.json" << 'SETTINGS_EOF'
 {
+  "permissions": {
+    "allow": [
+      "Read(docs/**)",
+      "Read(.githooks/**)",
+      "Read(.claude/**)",
+      "Write(docs/features/**)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:.git/commit-accumulator/*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -456,7 +474,8 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'branch=$(git branch --show-current 2>/dev/null); if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"🌿 已自动创建分支: $new_branch\"; fi'"
+            "command": "bash -c 'branch=\"$(git branch --show-current 2>/dev/null)\"; if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"已自动创建分支: $new_branch\"; fi'",
+            "timeout": 30
           }
         ]
       }
@@ -467,7 +486,8 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [[ -n $(git status --porcelain 2>/dev/null) ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"✅ 已自动提交\"; fi'"
+            "command": "bash -c 'if [[ -n \"$(git status --porcelain 2>/dev/null)\" ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"已自动提交\"; fi'",
+            "timeout": 30
           }
         ]
       }
@@ -477,6 +497,7 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
 SETTINGS_EOF
     print_success "自动提交已启用（配置文件: .claude/settings.json）"
     print_success "自动创建分支已启用（在 main/master 分支时自动创建功能分支）"
+    print_success "权限配置已添加（保护敏感文件）"
 else
     print_warning "自动提交未启用（可稍后手动配置）"
 fi
