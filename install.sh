@@ -162,16 +162,20 @@ main() {
     local changed_files=$(git diff-tree --no-commit-id --name-only -r HEAD | tr '\n' ',' | sed 's/,$//')
     local stats=$(git diff-tree --no-commit-id --stat -r HEAD | tail -1)
 
+    # 转义 JSON 特殊字符
+    local escaped_message=$(echo "$commit_message" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    local escaped_stats=$(echo "$stats" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
     local json_entry=$(cat << EOF
 {
     "hash": "$commit_hash",
     "hash_short": "$commit_hash_short",
-    "message": "$commit_message",
+    "message": "$escaped_message",
     "body": $(echo "$commit_body" | jq -Rs . 2>/dev/null || echo '""'),
     "author": "$commit_author",
     "date": "$commit_date",
     "files": "$changed_files",
-    "stats": "$stats"
+    "stats": "$escaped_stats"
 }
 EOF
 )
@@ -331,6 +335,8 @@ main() {
         if [[ -s "$doc_file" ]]; then
             git add "$doc_file"
             if ! git diff --cached --quiet "$doc_file" 2>/dev/null; then
+                # 注意：使用 --no-verify 是为了避免 pre-push hook 的无限循环
+                # 这仅用于自动生成的文档提交
                 git commit -m "docs($safe_branch_name): auto-generate feature documentation" --no-verify
                 echo "✅ 文档已提交到仓库"
             fi
@@ -359,16 +365,20 @@ print_step "安装 Claude Code 命令..."
 cat > "$TARGET_DIR/.claude/commands/review-commits.md" << 'CMD_EOF'
 ---
 description: 查看累积的提交记录
-allowed-tools: Bash(ls:*), Bash(cat:*), Bash(git branch:*)
+allowed-tools: Bash(ls:.git/commit-accumulator/*), Bash(cat:.git/commit-accumulator/*), Bash(git branch:*)
+argument-hint: [branch-name]
 ---
 
 # 查看累积的提交记录
 
 请执行以下操作：
 
-1. 检查 `.git/commit-accumulator/` 目录
+1. 检查 `.git/commit-accumulator/` 目录是否存在
 2. 列出所有累积文件
-3. 显示当前分支的累积提交详情（如果存在）
+3. 显示提交详情：
+   - 如果用户指定了分支名（$1），显示该分支的记录
+   - 如果没有参数，显示当前分支的记录
+   - 如果当前分支没有记录，显示所有可用的分支记录
 
 显示格式：
 - 分支名
@@ -380,7 +390,8 @@ CMD_EOF
 cat > "$TARGET_DIR/.claude/commands/generate-feature-doc.md" << 'CMD_EOF'
 ---
 description: 手动生成功能文档
-allowed-tools: Bash(ls:*), Bash(cat:*), Bash(git branch:*), Read, Write
+allowed-tools: Bash(ls:.git/commit-accumulator/*), Bash(cat:.git/commit-accumulator/*), Bash(git branch:*), Read, Write(docs/features/*)
+argument-hint: [branch-name]
 ---
 
 # 生成功能文档
@@ -388,18 +399,27 @@ allowed-tools: Bash(ls:*), Bash(cat:*), Bash(git branch:*), Read, Write
 请执行以下操作：
 
 1. 检查 `.git/commit-accumulator/` 目录中是否有累积的提交记录
-2. 如果有，读取当前分支对应的 JSON 文件
-3. 基于累积的提交信息生成功能文档
-4. 将文档保存到 `docs/features/[分支名].md`
+2. 确定要处理的分支：
+   - 如果用户指定了分支名（$1），使用该分支
+   - 如果没有参数，使用当前分支
+3. 读取对应的 JSON 文件
+4. 基于累积的提交信息生成功能文档，包含：
+   - 功能概述
+   - 变更摘要
+   - 技术细节
+   - 影响范围
+   - 相关提交列表
+5. 将文档保存到 `docs/features/[分支名].md`
 
-如果没有累积记录，请告知用户。
+如果没有累积记录，请告知用户可以先进行一些提交。
 CMD_EOF
 
 # clear-commits command
 cat > "$TARGET_DIR/.claude/commands/clear-commits.md" << 'CMD_EOF'
 ---
 description: 清理累积的提交记录
-allowed-tools: Bash(rm:*), Bash(ls:*)
+allowed-tools: Bash(rm:.git/commit-accumulator/*), Bash(ls:.git/commit-accumulator/*)
+argument-hint: [--all | branch-name]
 ---
 
 # 清理累积记录
@@ -407,8 +427,13 @@ allowed-tools: Bash(rm:*), Bash(ls:*)
 请执行以下操作：
 
 1. 询问用户确认是否要清理累积记录
-2. 如果确认，删除 `.git/commit-accumulator/` 目录下的所有文件
+2. 如果确认，删除 `.git/commit-accumulator/` 目录下的相应文件
+   - 如果用户指定了分支名（$1），只删除该分支的记录
+   - 如果用户指定了 `--all`，删除所有累积记录
+   - 如果没有参数，删除当前分支的记录
 3. 报告清理结果
+
+安全提示：此命令仅能删除 `.git/commit-accumulator/` 目录下的文件。
 CMD_EOF
 
 print_success "Claude Code 命令已安装"
@@ -430,6 +455,24 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     # 使用 settings.json（项目级配置，不会被 Claude Code 覆盖）
     cat > "$TARGET_DIR/.claude/settings.json" << 'SETTINGS_EOF'
 {
+  "permissions": {
+    "allow": [
+      "Read(docs/**)",
+      "Read(.githooks/**)",
+      "Read(.claude/**)",
+      "Write(docs/features/**)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:.git/commit-accumulator/*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -437,7 +480,8 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'branch=$(git branch --show-current 2>/dev/null); if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"🌿 已自动创建分支: $new_branch\"; fi'"
+            "command": "bash -c 'branch=\"$(git branch --show-current 2>/dev/null)\"; if [[ \"$branch\" == \"main\" || \"$branch\" == \"master\" ]]; then new_branch=\"feature/auto-$(date +%Y%m%d-%H%M%S)\"; git checkout -b \"$new_branch\" 2>/dev/null && echo \"已自动创建分支: $new_branch\"; fi'",
+            "timeout": 30
           }
         ]
       }
@@ -448,7 +492,8 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [[ -n $(git status --porcelain 2>/dev/null) ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"✅ 已自动提交\"; fi'"
+            "command": "bash -c 'if [[ -n \"$(git status --porcelain 2>/dev/null)\" ]]; then git add -A && git commit -m \"auto: Claude Code 自动提交\" --no-verify 2>/dev/null && echo \"已自动提交\"; fi'",
+            "timeout": 30
           }
         ]
       }
@@ -458,6 +503,7 @@ if [[ ! $REPLY =~ ^[Nn]$ ]]; then
 SETTINGS_EOF
     print_success "自动提交已启用（配置文件: .claude/settings.json）"
     print_success "自动创建分支已启用（在 main/master 分支时自动创建功能分支）"
+    print_success "权限配置已添加（保护敏感文件）"
 else
     print_warning "自动提交未启用（可稍后手动配置）"
 fi
@@ -482,6 +528,16 @@ GITIGNORE_ENTRIES=(
     "# Claude Git Hooks AutoDoc"
     ".git/commit-accumulator/"
     ".git/hooks.log"
+    ""
+    "# Claude Code 本地配置"
+    ".claude/settings.local.json"
+    ".claude.local.md"
+    "CLAUDE.local.md"
+    ""
+    "# 敏感文件"
+    ".env"
+    ".env.*"
+    "secrets/"
 )
 
 for entry in "${GITIGNORE_ENTRIES[@]}"; do
