@@ -436,7 +436,155 @@ argument-hint: [--all | branch-name]
 安全提示：此命令仅能删除 `.git/commit-accumulator/` 目录下的文件。
 CMD_EOF
 
-print_success "Claude Code 命令已安装"
+# tag command
+cat > "$TARGET_DIR/.claude/commands/tag.md" << 'CMD_EOF'
+---
+description: 给当前版本打标签（重要节点标记）
+allowed-tools: Bash(git tag:*), Bash(git log:*), Bash(git branch:*)
+argument-hint: <tag-name> [description]
+---
+
+# 创建版本标签
+
+为当前提交创建一个带注释的 Git 标签，用于标记重要的版本节点。
+
+## 执行步骤
+
+1. 获取用户提供的标签名称（$1）和描述（$ARGUMENTS 中除第一个参数外的内容）
+2. 如果没有提供标签名，询问用户输入
+3. 检查标签名是否已存在
+4. 显示当前提交信息，让用户确认
+5. 创建带注释的标签：`git tag -a <tag-name> -m "<description>"`
+6. 显示创建成功的信息
+
+## 标签命名建议
+
+- `v1.0.0` - 版本号格式
+- `feature-完成` - 功能完成标记
+- `stable-日期` - 稳定版本标记
+- `before-重构` - 重大修改前的备份点
+
+## 示例
+
+```
+/tag v1.0.0 初始版本发布
+/tag feature-auth 完成用户认证功能
+```
+CMD_EOF
+
+# list-tags command
+cat > "$TARGET_DIR/.claude/commands/list-tags.md" << 'CMD_EOF'
+---
+description: 查看所有版本标签
+allowed-tools: Bash(git tag:*), Bash(git log:*), Bash(git show:*), Bash(git for-each-ref:*)
+argument-hint: [--verbose]
+---
+
+# 查看版本标签列表
+
+显示项目中所有的 Git 标签，帮助用户了解重要的版本节点。
+
+## 执行步骤
+
+1. 检查是否有标签存在
+2. 如果用户指定了 `--verbose` 或 `-v`（$1），显示详细信息
+3. 列出所有标签，包含：标签名称、创建时间、描述、对应的提交 hash
+4. 以表格或列表形式展示
+
+## 相关命令
+
+- `/tag <name>` - 创建新标签
+- `/checkout-version <tag>` - 回退到指定标签
+- `/delete-tag <name>` - 删除标签
+CMD_EOF
+
+# checkout-version command
+cat > "$TARGET_DIR/.claude/commands/checkout-version.md" << 'CMD_EOF'
+---
+description: 回退到指定版本（标签或提交）
+allowed-tools: Bash(git checkout:*), Bash(git log:*), Bash(git tag:*), Bash(git stash:*), Bash(git status:*), Bash(git branch:*)
+argument-hint: <tag-or-commit> [--file <path>]
+---
+
+# 回退到指定版本
+
+安全地回退代码到指定的标签或提交版本。
+
+## 执行步骤
+
+1. 获取目标版本（$1）- 可以是标签名或提交 hash
+2. 如果没有提供版本，显示可用的标签列表供选择
+3. 检查当前是否有未提交的修改，如果有，询问用户是否要 stash 保存
+4. 判断回退模式：
+   - 如果指定了 `--file`（$2）和文件路径（$3），只恢复特定文件
+   - 否则执行完整版本切换
+5. 执行回退操作并显示结果
+
+## 示例
+
+```
+/checkout-version v1.0.0
+/checkout-version a1b2c3d
+/checkout-version feature-auth --file config.py
+```
+CMD_EOF
+
+# delete-tag command
+cat > "$TARGET_DIR/.claude/commands/delete-tag.md" << 'CMD_EOF'
+---
+description: 删除版本标签
+allowed-tools: Bash(git tag:*), Bash(git push:*)
+argument-hint: <tag-name> [--remote]
+---
+
+# 删除版本标签
+
+删除本地或远程的 Git 标签。
+
+## 执行步骤
+
+1. 获取要删除的标签名（$1）
+2. 确认标签存在并询问用户确认
+3. 删除本地标签：`git tag -d <tag-name>`
+4. 如果用户指定了 `--remote`，同时删除远程标签
+
+## 示例
+
+```
+/delete-tag temp-backup
+/delete-tag old-version --remote
+```
+CMD_EOF
+
+# history command
+cat > "$TARGET_DIR/.claude/commands/history.md" << 'CMD_EOF'
+---
+description: 查看提交历史和版本记录
+allowed-tools: Bash(git log:*), Bash(git show:*), Bash(git diff:*)
+argument-hint: [--file <path>] [--count <n>]
+---
+
+# 查看提交历史
+
+显示项目的提交历史，帮助用户了解代码变更记录。
+
+## 执行步骤
+
+1. 解析参数：
+   - `--file <path>`：只显示特定文件的历史
+   - `--count <n>`：显示最近 n 条记录（默认 10）
+2. 获取并展示提交历史（Hash、时间、作者、信息、文件数）
+
+## 示例
+
+```
+/history
+/history --count 20
+/history --file src/main.py
+```
+CMD_EOF
+
+print_success "Claude Code 命令已安装（含版本管理命令）"
 
 #-------------------------------------------------------------------------------
 # 配置自动提交（可选）
