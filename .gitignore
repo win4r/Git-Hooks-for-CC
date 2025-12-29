@@ -1,0 +1,36 @@
+# Claude Code 本地配置（不提交到版本控制）
+.claude/settings.local.json
+.claude.local.md
+CLAUDE.local.md
+
+# Git Hooks 临时文件
+.git/commit-accumulator/
+.git/hooks.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 和编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 环境变量和密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
