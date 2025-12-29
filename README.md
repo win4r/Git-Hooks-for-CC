@@ -168,6 +168,30 @@ git push                              # ← 自动生成 docs/features/feature-m
 /clear-commits
 ```
 
+### 版本管理
+
+使用版本管理命令回退到任意历史版本：
+
+```bash
+# 给重要版本打标签
+/tag v1.0.0 初始版本发布
+
+# 查看所有标签
+/list-tags
+
+# 查看提交历史
+/history
+
+# 回退到指定版本
+/checkout-version v1.0.0
+
+# 只恢复某个文件
+/checkout-version v1.0.0 --file src/main.py
+
+# 删除不需要的标签
+/delete-tag temp-backup
+```
+
 ## ⚙️ 配置选项
 
 ### 自动提交配置
