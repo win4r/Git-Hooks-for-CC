@@ -335,6 +335,8 @@ main() {
         if [[ -s "$doc_file" ]]; then
             git add "$doc_file"
             if ! git diff --cached --quiet "$doc_file" 2>/dev/null; then
+                # 注意：使用 --no-verify 是为了避免 pre-push hook 的无限循环
+                # 这仅用于自动生成的文档提交
                 git commit -m "docs($safe_branch_name): auto-generate feature documentation" --no-verify
                 echo "✅ 文档已提交到仓库"
             fi
