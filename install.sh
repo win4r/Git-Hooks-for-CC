@@ -162,16 +162,20 @@ main() {
     local changed_files=$(git diff-tree --no-commit-id --name-only -r HEAD | tr '\n' ',' | sed 's/,$//')
     local stats=$(git diff-tree --no-commit-id --stat -r HEAD | tail -1)
 
+    # 转义 JSON 特殊字符
+    local escaped_message=$(echo "$commit_message" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    local escaped_stats=$(echo "$stats" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
     local json_entry=$(cat << EOF
 {
     "hash": "$commit_hash",
     "hash_short": "$commit_hash_short",
-    "message": "$commit_message",
+    "message": "$escaped_message",
     "body": $(echo "$commit_body" | jq -Rs . 2>/dev/null || echo '""'),
     "author": "$commit_author",
     "date": "$commit_date",
     "files": "$changed_files",
-    "stats": "$stats"
+    "stats": "$escaped_stats"
 }
 EOF
 )
