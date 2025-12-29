@@ -48,15 +48,20 @@ docs/features/       # 自动生成的功能文档
 
 ## 常用命令
 
+### 文档生成命令
 ```bash
-# 查看累积的提交记录
-/review-commits
+/review-commits          # 查看累积的提交记录
+/generate-feature-doc    # 手动生成功能文档
+/clear-commits           # 清理累积记录
+```
 
-# 手动生成功能文档
-/generate-feature-doc
-
-# 清理累积记录
-/clear-commits
+### 版本管理命令
+```bash
+/tag <name> [desc]       # 给当前版本打标签
+/list-tags               # 查看所有标签
+/history                 # 查看提交历史
+/checkout-version <ver>  # 回退到指定版本
+/delete-tag <name>       # 删除标签
 ```
 
 ## 依赖要求
