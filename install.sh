@@ -522,6 +522,16 @@ GITIGNORE_ENTRIES=(
     "# Claude Git Hooks AutoDoc"
     ".git/commit-accumulator/"
     ".git/hooks.log"
+    ""
+    "# Claude Code 本地配置"
+    ".claude/settings.local.json"
+    ".claude.local.md"
+    "CLAUDE.local.md"
+    ""
+    "# 敏感文件"
+    ".env"
+    ".env.*"
+    "secrets/"
 )
 
 for entry in "${GITIGNORE_ENTRIES[@]}"; do
